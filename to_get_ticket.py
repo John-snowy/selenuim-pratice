@@ -126,6 +126,7 @@ def ticket_step():
         browser.add_cookie(cookie_dict=v)
     browser.get(urls['ticket_HKGZHO'])
     browser.refresh()
+    print(cookie)
     # browser.navigate().refresh()
 
 
@@ -200,8 +201,8 @@ def ticket_step():
     #print(size)
 
     #做验证码的识别（调api要花钱，先注释掉）
-    #res = code_verify()
-    #captcha_inp.send_keys(res)
+    res = code_verify()
+    captcha_inp.send_keys(res)
 
     # 登录按钮
     agree_box = browser.find_element(By.CLASS_NAME, 'hint')
@@ -242,6 +243,5 @@ def code_verify():
     return res
 
 if __name__ == '__main__':
-    login_step()
     ticket_step()
     os.system("pause")
