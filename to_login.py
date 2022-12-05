@@ -20,12 +20,21 @@ urls = {
     "ticket_ZHOHKG": "https://i.hzmbus.com/webhtml/ticket_details?xlmc_1=珠海&xlmc_2=香港&xllb=1&xldm=ZHOHKG&code_1=ZHO&code_2=HKG",
 }
 
-cookie_path = "./cookie.txt"
+cookie_path = "./user"
 
-account = "2576322300@qq.com"
-password = "zxcvb110"
+accounts = [
+    {
+        "account": "2576322300@qq.com",
+        "password": "zxcvb110"
+    },
+    {
+        "account": "wurongzhuang@foxmail.com",
+        "password": "zxcvb110"
+    }
+]
 
-def login_step():
+
+def login_step(index, login_account, login_password):
     # 这里打开登录页面
     browser = webdriver.Chrome()
     # browser.maximize_window()
@@ -46,8 +55,8 @@ def login_step():
     if len(input_list) > 0:
         inputUser = input_list[0].find_element(By.TAG_NAME, 'input')
         inputPassword = input_list[2].find_element(By.TAG_NAME, 'input')
-        inputUser.send_keys(account)
-        inputPassword.send_keys(password)
+        inputUser.send_keys(login_account)
+        inputPassword.send_keys(login_password)
     # 找登录按钮，并点一下他
     login_btn = form_box.find_element(By.CLASS_NAME, 'login_btn')
     login_btn.click()
@@ -81,10 +90,11 @@ def login_step():
     # 登录跳转首页
     cookie = browser.get_cookies()
     browser.close()
-    with open(cookie_path, mode='w', encoding='utf-8') as file_obj:
+    with open(cookie_path+str(index)+"_cookies.txt", mode='w', encoding='utf-8') as file_obj:
         file_obj.write(json.dumps(cookie))
     print(cookie)
 
 
 if __name__ == '__main__':
-    login_step()
+    for idx, account in enumerate(accounts):
+        login_step(idx, account['account'], account['password'])

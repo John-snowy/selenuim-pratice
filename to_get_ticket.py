@@ -12,11 +12,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import YDM_Verify as verify
-import ddddocr
 import json
 import os
 import datetime
 import calendar
+import requests
+import time
+import random
 
 # ua = UserAgent()
 header = {
@@ -35,17 +37,33 @@ urls = {
 }
 
 # 这里是需要选择的日期，24并不是24号，选择框里固定是35个日期，需要根据这个月第一天跟最后一天是星期几来判定这个数最终是这个月的哪一天
-date_num = 24
+date_num = 2
 
-cookie_path = "./cookie.txt"
+cookie_path = "./user0_cookie.txt"
 screen_shot_path = './screen_shot.png'
 screen_code_path = './screen_code.png'
 
-account = "2576322300@qq.com"
-password = "zxcvb110"
+passenger = "盧育庭"
+card_no = "H07508647"
 
-passenger = "吴讲德"
-card_no = "445242324234234234234"
+accounts = [
+    {
+        "account": "2576322300@qq.com",
+        "password": "zxcvb110"
+    },
+    {
+        "account": "wurongzhuang@foxmail.com",
+        "password": "zxcvb110"
+    }
+]
+
+linecode = {
+    'ZHO2HK': "ZHOHKG",  # 珠海到香港
+    "HK2ZHO": "HKGZHO",  # 香港到珠海
+    "HK2MAC": "HKGMAC",  # 香港到澳门
+    "MAC2HK": "MACHKG"  # 澳门到香港
+}
+
 
 def cal_date():
     today = datetime.datetime.today()
@@ -56,65 +74,12 @@ def cal_date():
     end_weekday = calendar.weekday(year, month, end)
     return start_weekday
 
-def login_step():
-    # 这里打开登录页面
-    browser = webdriver.Chrome()
-    # browser.maximize_window()
-    browser.get(urls["login_page_url"])
-    WebDriverWait(browser, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, 'login_box'))
-    )
-    # browser.implicitly_wait(5) #设置等待20秒钟
-    # cookie = browser.get_cookies()
-    app = browser.find_element(By.ID, 'app')
-    box = app.find_element(By.CLASS_NAME, 'login_box')
-    form_box = box.find_element(By.CLASS_NAME, 'form_box')
-    # 找账号、密码的输入框
-    input_list = form_box.find_elements(By.CLASS_NAME, 'input_item')
-    # print(cookie)
-    # print(len(inputList))
-    # 这里直接输入账号密码
-    if len(input_list) > 0:
-        inputUser = input_list[0].find_element(By.TAG_NAME, 'input')
-        inputPassword = input_list[2].find_element(By.TAG_NAME, 'input')
-        inputUser.send_keys(account)
-        inputPassword.send_keys(password)
-    # 找登录按钮，并点一下他
-    login_btn = form_box.find_element(By.CLASS_NAME, 'login_btn')
-    login_btn.click()
-    # 等渲染跳转的首页页面
-    # browser.implicitly_wait(10)
-    # time.sleep(20)
-    # 显示等待登录后页面跳转
-    WebDriverWait(browser, 20).until(
-        EC.presence_of_element_located((By.CLASS_NAME, 'action'))
-    )
 
-    # 先不要了 start
-    # 随便点击一个框进入
-    # action_box = browser.find_element(By.CLASS_NAME,'box')
-    # btns = action_box.find_elements(By.TAG_NAME, 'td')
-    # btns[0]  香港 => 珠海
-    # btns[1]  珠海 => 香港
-    # btns[2]  香港 => 澳门
-    # btns[3]  澳门 => 香港
-    # print(browser)
-    # print(action_box)
-    # print(len(btns))
-    # print(btns)
-    # if len(btns) > 0:
-    #     btns[0].click()
-    # else:
-    #     print("页面没渲染好，找不到可以按的地方")
+def get_book_date():
+    date = time.strftime("%Y-%m", time.localtime())
+    print(str(date_num).rjust(2, '0'))
+    return date + "-" + str(date_num).rjust(2, '0')
 
-    # 先不要了 end
-
-    # 登录跳转首页
-    cookie = browser.get_cookies()
-    browser.close()
-    with open(cookie_path, mode='w', encoding='utf-8') as file_obj:
-        file_obj.write(json.dumps(cookie))
-    print(cookie)
 
 def ticket_step():
     browser = webdriver.Chrome()
@@ -128,7 +93,6 @@ def ticket_step():
     browser.refresh()
     print(cookie)
     # browser.navigate().refresh()
-
 
     # browser.implicitly_wait(10)
     WebDriverWait(browser, 30).until(
@@ -148,7 +112,7 @@ def ticket_step():
         print(len(date_btns))
         if len(date_btns) > 0:
             first_weekday = cal_date()
-            browser.execute_script("arguments[0].click();", date_btns[date_num+first_weekday-1])
+            browser.execute_script("arguments[0].click();", date_btns[date_num + first_weekday - 1])
             # date_btns[22].click()
             print('我选了日期了')
 
@@ -163,7 +127,6 @@ def ticket_step():
     # sel_btn.click()
 
     # 这里预留要选预约时间
-
 
     # 找姓名、身份证输入框
     # 姓名输入框
@@ -192,15 +155,15 @@ def ticket_step():
     location = captcha_img.location
     size = captcha_img.size
 
-    #滑到浏览器最底部，并进行截图处理
+    # 滑到浏览器最底部，并进行截图处理
     browser.execute_script("arguments[0].scrollIntoView();", captcha_img)
 
     browser.save_screenshot(screen_shot_path)
     # print(captcha_url)
-    #print(location)
-    #print(size)
+    # print(location)
+    # print(size)
 
-    #做验证码的识别（调api要花钱，先注释掉）
+    # 做验证码的识别（调api要花钱，先注释掉）
     res = code_verify()
     captcha_inp.send_keys(res)
 
@@ -217,6 +180,7 @@ def ticket_step():
     # print(browser.page_source)
     # browser.close()
 
+
 def code_verify():
     # 这里是固定了用浏览器打开页面验证码的位置
     left = 730
@@ -229,7 +193,7 @@ def code_verify():
     im = im.crop((left, top, right, bottom))
     im.save(screen_code_path)
 
-    #ocr = ddddocr.DdddOcr()
+    # ocr = ddddocr.DdddOcr()
     with open(screen_code_path, 'rb') as f:
         img_bytes = f.read()
     # captcha_img.click()
@@ -242,6 +206,77 @@ def code_verify():
     print("api的结果:" + res)
     return res
 
+
+def craw_post(rdm):
+    cookie_chooese = './user' + str(rdm) + '_cookies.txt'
+
+    cookies = {}
+    with open(cookie_chooese, mode='r', encoding='utf-8') as file_obj:
+        cookie = file_obj.read()
+    for v in json.loads(cookie):
+        cookies[v['name']] = v['value']
+    url = "https://i.hzmbus.com/webh5api/manage/query.book.info.data"
+
+    headers = {
+        "Connection": "keep-alive",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache",
+        "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json;charset=UTF-8",
+        "Authorization": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJla2p0X2lzcyIsImlhdCI6MTY3MDE0MDUyNSwiZXhwIjoxNjcwMTQ3NzI1LCJhdWQiOiJla2p0X2NsaWVudF9hdWQiLCJzdWIiOiJla2p0X2NsaWVudF9zdWIiLCJuYmYiOjE2NzAxNDA1MjUsImp0aSI6ImVranRfanRpXzE2NzAxNDA1MjUiLCJkYXRhIjoic1pIV1REbzFDNm8wam1vR2JBQ1ZXU3RQU25ocVQrM2N6d3UyK2MrZXNmMnhiOGhPUkh0SEFxQzBhN0RUS082WjdxQnFTbktRZ3dCR0tcL2JFMHV4dTJjMzdKUkZDb2FXUHQxcEZvV0xZQmRLdWdwdGEyWmdMT0ZVa3dzWFwvTEl1VzJ6RzRkVElXWmJhZHdUXC84TElUQzR5cWw0YVplZ0NIekc2bGdOcXFqZFdlTExaNVBvZGw1SlkxTm1UUlVZaTAzVTVheHZVUlBsR1NNNllTOHl5U1wvWnFYSFlKNk1MZUhvcTF5UjNLOGJCSWFNTEJoZzd3VzlPYkJpcWNEWlg1ZjRuc3U1VWRMZ1p4NVBKRkhFczhIXC9aUGowYithamJ0TkRnOVRcLzc4N0pnTlMwU0l5eUUzdHpuVVVMd3ZpZFNBNThGZ2YwWjV4Ukt3Ym1TQkl5Q3M5eGZwTGVEMTNEXC9ZSnNcL05TcGlzUU5uV2N0K1d6K096T0xVcHlteVpLZU52MWxtbVUyOTFVVkdrQklcL1BNditwbmxMdTEwMm1aeEowbVhQZDFqUUpsVDdQWnd6T3VCNHp4QjFrTHNKd05wdlNIU013eldWYjhrQ1FQcERQYnpHY250MWVuVUVYZ3JDTzFWVEswb2RQN0xxVlwvNDBcL3hlYWRRdUN5a1NOemZLYkwyTGNrUWJBNE1XaEozZ1RQa0MyZGFNdmMydHdoNjdSMkZrMEEyUlVyTnN6dlZkODFkY0h5S0lyeWQrTnRwQUZoeEJ0MWpvUm1SZ2JiXC93V3RwRkdaQlZyTElRUWQ2R3RKZUptQ3VDRWRmdmF2ZWk3UGpBVE9QaTA2dVZoVDNaMHZcL1ZsMHF1N05TOXlFYllrN3F5VURSQ1wva3Jiako2a1pmTUpMdnJ4VythXC9GS3dpb2hNQWpPcDVtbnFHbktmWnNSTXlHdm9JSklsNUtEelFwU0M4SjMyZUZpTXZ2WU5FMmNmaU9vdGhDOG5pdjgwamcxK09uT2JaXC9wWkIrVW1YS2V3akhcL1JzclpVNWpuRHVVdXRjV091ckhGZ2ZjMGFcLzRQb21Gamk3WElMZEdpTE84eDZaSTd3SlpaZTZwbTBlSkxFaTlkSm14U3ZCUkM5QzJHMStjN3J6THo5TkVMSFhGK0VhMGpIbTh6MjA1d3JuVElJaWdjTWZTNVJQMmdSczFjVFVYczZoS2EwcTU1a0gxU1Jhb2picHN0V2pUck1uVXpGc2FBeXczZVRlcW83elVQUEpFeEVycDhGYlwvb2I0SVRWOXVFQ0E0UzBLcEY4a29ZTUNUVmRDZU9qWVZWS3FvV1pvdGM0eldEdDJVdVZcL2VESGQ5c3FcL1Q0ajQ4d0QycjgydSJ9.1f-EZcjq_uskJTsGBxW3W8EgIgmvZ0ulQlLi-KNyV9k",
+        "sec-ch-ua-mobile": "?0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.82 Safari/537.36",
+        "sec-ch-ua-platform": "Windows",
+        "Origin": "https://i.hzmbus.com",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Dest": "empty",
+        "Referer": "https://i.hzmbus.com/webhtml/ticket_details?xlmc_1=%E9%A6%99%E6%B8%AF&xlmc_2=%E7%8F%A0%E6%B5%B7&xllb=1&xldm=HKGZHO&code_1=HKG&code_2=ZHO",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "Host": "i.hzmbus.com",
+        "Accept-Encoding": "gzip, deflate, br"
+    }
+    data = {
+        "appId": "HZMBWEB_HK",
+        "bookDate": get_book_date(),
+        "equipment": "PC",
+        "joinType": "WEB",
+        "lineCode": "MACHKG",
+        "version": "2.7.2032.1262"
+    }
+    print(cookies)
+
+    response = requests.request("POST", url, headers=headers, data=json.dumps(data), cookies=cookies)
+    print("cookies:")
+    print(response.cookies)
+    print("headers:")
+    print(response.headers)
+
+    try:
+        rsp = json.loads(response.text)
+        print(rsp)
+        if "responseData" in rsp:
+            print("responseData 在返回体里面")
+            print(rsp['responseData'])
+            for v in rsp['responseData']:
+                if "maxPeople" in v:
+                    print(v['maxPeople'])
+                    if v['maxPeople'] > 0:
+                        return True
+    except:
+        print("没啥就是返回的接口体有毛病:" + response.text)
+    return False
+
+
 if __name__ == '__main__':
-    ticket_step()
-    os.system("pause")
+    idx = 0
+    while True:
+        rdm = idx % len(accounts)
+        rst = craw_post(rdm)
+        if rst:
+            break
+        idx += 1
+        time.sleep(10)
+    # ticket_step()
+    # os.system("pause")
