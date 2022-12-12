@@ -26,13 +26,18 @@ def cal_date():
 
 
 class TicketHelper:
-    def __init__(self, username, password, date_num, passenger, card_no):
+    def __init__(self, username, password, date_num, date_num_list, passenger, card_no):
         self.account = {
             "username": username,
             "password": password,
         }
         self.date_num_wanted = int(date_num)
         self.date_num = int(date_num)
+        self.date_num_list = ''
+        if not (date_num_list is None):
+            self.date_num_list = date_num_list.split(',')
+        self.date_num_len = len(self.date_num_list)
+        self.date_num_try = 0
         self.passenger = passenger
         self.card_no = card_no
         self.browser_instance = None
@@ -147,7 +152,7 @@ class TicketHelper:
             content = response.content
             data = json.loads(content)
             print(data)
-            if data['code'] != 0:
+            if data['code'] != 'SUCCESS':
                 return False
         except:
             return False
@@ -237,7 +242,6 @@ class TicketHelper:
 
     def auto_switch_date(self):
         self.select_date()
-        return True
 
         while True:
             while True:
@@ -256,12 +260,7 @@ class TicketHelper:
                     service.browser_instance.quit()
                     return False
                 if resp['responseData'][0]['maxPeople'] == 0:
-                    if self.flag:
-                        self.flag = False
-                        self.date_num = self.date_num_wanted + 1
-                    else:
-                        self.flag = True
-                        self.date_num = self.date_num_wanted - 1
+                    self.choose_date_num()
                     time.sleep(5)
                     self.select_date()
                 else:
@@ -270,6 +269,18 @@ class TicketHelper:
                 print("从localstorage里面获取的数据有问题，json转换报错了")
                 continue
         return True
+
+    def choose_date_num(self):
+        if self.date_num_len > 0:
+            self.date_num = int(self.date_num_list[self.date_num_try % self.date_num_len])
+            self.date_num_try += 1
+        else:
+            if self.flag:
+                self.flag = False
+                self.date_num = self.date_num_wanted + 1
+            else:
+                self.flag = True
+                self.date_num = self.date_num_wanted - 1
 
     def code_verify(self):
         # 这里是固定了用浏览器打开页面验证码的位置
@@ -311,12 +322,14 @@ parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('-username', '-u', help='登录账号', default='holtye@qq.com')
 parser.add_argument('-password', '-pw', help='登录账号对应的密码', default='yezi0511')
 parser.add_argument('-date_num', '-dn', help='买票日期', required=True)
+parser.add_argument('-date_num_list', '-dnl', help='买票日期区间')
 parser.add_argument('-passenger', '-pa', help='乘车人名字', required=True)
 parser.add_argument('-card_no', '-cn', help='乘车人身份证', required=True)
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    service = TicketHelper(args.username, args.password, args.date_num, args.passenger, args.card_no)
+    service = TicketHelper(args.username, args.password, args.date_num, args.date_num_list, args.passenger,
+                           args.card_no)
     while True:
         login_state = service.check_login()
         if not login_state:
