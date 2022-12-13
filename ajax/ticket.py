@@ -2,7 +2,11 @@ import calendar
 import datetime
 import os.path
 import time
+import os
+import re
+import base64
 
+from io import BytesIO
 from PIL import Image
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -42,7 +46,7 @@ class TicketHelper:
         self.card_no = card_no
         self.browser_instance = None
         self.screenShotPath = './screen_shot.png'
-        self.screenCodePath = './screen_code.png'
+        self.screenCodePath = './captcha.png'
         self.cookieSavePath = './cache/cookie.json'
         self.headerSavePath = './cache/header.json'
         self.userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1 holtye'
@@ -76,9 +80,10 @@ class TicketHelper:
             print(entry)
 
     def to_new_page(self, url):
-        self.init_browser()
-        self.browser_instance.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
-                                              {"source": open('ajax-hook.js', encoding='utf-8').read()})
+        if self.browser_instance is None:
+            self.init_browser()
+            self.browser_instance.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
+                                                  {"source": open('ajax-hook.js', encoding='utf-8').read()})
         self.browser_instance.get(url)
 
     def login(self):
@@ -121,7 +126,7 @@ class TicketHelper:
 
         self.browser_instance.get(self.urls['ticket_HKGZHO'])
         WebDriverWait(self.browser_instance, 30).until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'sele_date'))
+            EC.presence_of_element_located((By.CLASS_NAME, 'captchaBox'))
         )
         return True
 
@@ -166,9 +171,9 @@ class TicketHelper:
 
     def ticket_page_auto_filter(self):
         # 自动换下日期
-        login_status = self.auto_switch_date()
-        if not login_status:
-            return False
+        # login_status = self.auto_switch_date()
+        # if not login_status:
+        #     return False
 
         # 找日间、夜间按钮
         day_btn = self.browser_instance.find_element(By.CLASS_NAME, 'day')
@@ -197,19 +202,23 @@ class TicketHelper:
         # 验证码处理
         captcha_box = self.browser_instance.find_element(By.CLASS_NAME, 'captchaBox')
         captcha_img = captcha_box.find_element(By.TAG_NAME, 'img')
+        js = "let c = document.createElement('canvas');let ctx = c.getContext('2d');" \
+             "let img = document.getElementsByTagName('img')[0]; /*找到图片*/ " \
+             "c.height=img.naturalHeight;c.width=img.naturalWidth;" \
+             "ctx.drawImage(img, 0, 0,img.naturalWidth, img.naturalHeight);" \
+             "let base64String = c.toDataURL();return base64String;"
+
+        base64_str = self.browser_instance.execute_script(js)
+        img = self.base64_to_image(base64_str)
+
+        img.save('captcha.png')
+
         captcha_inp = captcha_box.find_element(By.TAG_NAME, 'input')
-        # captcha_url = captcha_img.get_attribute('src')
-        location = captcha_img.location
-        size = captcha_img.size
-
-        # 滑到浏览器最底部，并进行截图处理
-        self.browser_instance.execute_script("arguments[0].scrollIntoView();", captcha_img)
-
-        self.browser_instance.save_screenshot(self.screenShotPath)
 
         # 做验证码的识别（调api要花钱，先注释掉）
-        # res = self.code_verify()
-        # captcha_inp.send_keys(res)
+        res = self.code_verify()
+        captcha_inp.send_keys(res)
+        # 滑到浏览器最底部，并进行截图处理
 
         # 登录按钮
         agree_box = self.browser_instance.find_element(By.CLASS_NAME, 'hint')
@@ -223,6 +232,14 @@ class TicketHelper:
         # print(self.browser_instance.page_source)
         # self.browser_instance.close()
         return True
+
+    @staticmethod
+    def base64_to_image(base64_str):
+        base64_data = re.sub('^data:image/.+;base64,', '', base64_str)
+        byte_data = base64.b64decode(base64_data)
+        image_data = BytesIO(byte_data)
+        img = Image.open(image_data)
+        return img
 
     def select_date(self):
         # 找日期按钮，并换一个
@@ -283,17 +300,6 @@ class TicketHelper:
                 self.date_num = self.date_num_wanted - 1
 
     def code_verify(self):
-        # 这里是固定了用浏览器打开页面验证码的位置
-        left = 730
-        top = 700
-        right = 865
-        bottom = 745
-
-        # 通过Image处理图像
-        im = Image.open(self.screenShotPath)
-        im = im.crop((left, top, right, bottom))
-        im.save(self.screenCodePath)
-
         # ocr = ddddocr.DdddOcr()
         with open(self.screenCodePath, 'rb') as f:
             img_bytes = f.read()
