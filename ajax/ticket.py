@@ -30,6 +30,11 @@ def cal_date():
 
 
 class TicketHelper:
+    passengers = [
+        # {"name": "王玉环", "id": "H01406348"},
+        # {"name": "刘启", "id": "H08111297"},
+    ]
+
     def __init__(self, username, password, date_num, date_num_list, passenger, card_no):
         self.account = {
             "username": username,
@@ -80,10 +85,9 @@ class TicketHelper:
             print(entry)
 
     def to_new_page(self, url):
-        if self.browser_instance is None:
-            self.init_browser()
-            self.browser_instance.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
-                                                  {"source": open('ajax-hook.js', encoding='utf-8').read()})
+        self.init_browser()
+        self.browser_instance.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
+                                              {"source": open('ajax-hook.js', encoding='utf-8').read()})
         self.browser_instance.get(url)
 
     def login(self):
@@ -171,9 +175,9 @@ class TicketHelper:
 
     def ticket_page_auto_filter(self):
         # 自动换下日期
-        # login_status = self.auto_switch_date()
-        # if not login_status:
-        #     return False
+        login_status = self.auto_switch_date()
+        if not login_status:
+            return False
 
         # 找日间、夜间按钮
         day_btn = self.browser_instance.find_element(By.CLASS_NAME, 'day')
@@ -187,17 +191,33 @@ class TicketHelper:
         # 这里预留要选预约时间
 
         # 找姓名、身份证输入框
-        # 姓名输入框
-        name_inp_box = self.browser_instance.find_element(By.CLASS_NAME, 'up')
-        name_inp_div = name_inp_box.find_element(By.CLASS_NAME, 'input')
-        name_inp = name_inp_div.find_element(By.TAG_NAME, 'input')
-        name_inp.send_keys(self.passenger)
-
-        # 身份证输入框
-        card_no_inp_box = self.browser_instance.find_element(By.CLASS_NAME, 'down')
-        card_no_inp_div = card_no_inp_box.find_element(By.CLASS_NAME, 'input')
-        card_no_inp = card_no_inp_div.find_element(By.TAG_NAME, 'input')
-        card_no_inp.send_keys(self.card_no)
+        if len(self.passengers) > 1:
+            clickNum = len(self.passengers) - 1
+            addBtn = self.browser_instance.find_element(By.CLASS_NAME, 'add')
+            for num in range(0, clickNum):
+                self.browser_instance.execute_script("arguments[0].click();", addBtn)
+            name_inp_box = self.browser_instance.find_elements(By.CLASS_NAME, 'up')
+            card_no_inp_box = self.browser_instance.find_elements(By.CLASS_NAME, 'down')
+            for num in range(0, len(self.passengers)):
+                # 姓名
+                name_inp_div = name_inp_box[num].find_element(By.CLASS_NAME, 'input')
+                name_inp = name_inp_div.find_element(By.TAG_NAME, 'input')
+                name_inp.send_keys(self.passengers[num]['name'])
+                # id
+                card_no_inp_div = card_no_inp_box[num].find_element(By.CLASS_NAME, 'input')
+                card_no_inp = card_no_inp_div.find_element(By.TAG_NAME, 'input')
+                card_no_inp.send_keys(self.passengers[num]['id'])
+        else:
+            # 姓名输入框
+            name_inp_box = self.browser_instance.find_element(By.CLASS_NAME, 'up')
+            name_inp_div = name_inp_box.find_element(By.CLASS_NAME, 'input')
+            name_inp = name_inp_div.find_element(By.TAG_NAME, 'input')
+            name_inp.send_keys(self.passenger)
+            # 身份证输入框
+            card_no_inp_box = self.browser_instance.find_element(By.CLASS_NAME, 'down')
+            card_no_inp_div = card_no_inp_box.find_element(By.CLASS_NAME, 'input')
+            card_no_inp = card_no_inp_div.find_element(By.TAG_NAME, 'input')
+            card_no_inp.send_keys(self.card_no)
 
         # 验证码处理
         captcha_box = self.browser_instance.find_element(By.CLASS_NAME, 'captchaBox')
@@ -216,8 +236,8 @@ class TicketHelper:
         captcha_inp = captcha_box.find_element(By.TAG_NAME, 'input')
 
         # 做验证码的识别（调api要花钱，先注释掉）
-        res = self.code_verify()
-        captcha_inp.send_keys(res)
+        # res = self.code_verify()
+        # captcha_inp.send_keys(res)
         # 滑到浏览器最底部，并进行截图处理
 
         # 登录按钮
