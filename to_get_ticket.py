@@ -18,6 +18,9 @@ import datetime
 import calendar
 import requests
 import time
+from selenium.webdriver.chrome.options import Options
+
+import fnmatch
 import random
 
 # ua = UserAgent()
@@ -37,9 +40,9 @@ urls = {
 }
 
 # 这里是需要选择的日期，24并不是24号，选择框里固定是35个日期，需要根据这个月第一天跟最后一天是星期几来判定这个数最终是这个月的哪一天
-date_num = 2
+date_num = 13
 
-cookie_path = "./user0_cookie.txt"
+cookie_path = "./user0_cookies.txt"
 screen_shot_path = './screen_shot.png'
 screen_code_path = './screen_code.png'
 
@@ -80,9 +83,36 @@ def get_book_date():
     print(str(date_num).rjust(2, '0'))
     return date + "-" + str(date_num).rjust(2, '0')
 
+def get_json_file_name():
+    files = os.listdir('./')
+    files.sort()
+    fnames = []
+    for f_name in files:
+        if fnmatch.fnmatch(f_name, 'price*.json'):
+            # print(f_name)
+            fnames.append(f_name)
+    return fnames[-1]
+
 
 def ticket_step():
-    browser = webdriver.Chrome()
+    chrome_options = Options()
+    # chrome_options.add_argument("--disable-extensions")
+    # chrome_options.add_argument("--disable-gpu")
+    # chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--no-sandbox")
+    prefs = {
+        'download.default_directory': 'E:\python乱敲\selenuim'
+    }
+    chrome_options.add_experimental_option('prefs', prefs)
+    # capabilities = webdriver.DesiredCapabilities().CHROME
+    # capabilities['acceptSslCerts'] = True
+    # browser = webdriver.Chrome(options=chrome_options, desired_capabilities=capabilities)
+    browser = webdriver.Chrome(options=chrome_options)
+
+    #设置cdp命令，每次加载页面都会执行改该js内容
+    browser.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": open('hook.js', encoding='utf-8').read()})
+
+    # browser = webdriver.Chrome()
     browser.get(urls['ticket_HKGZHO'])
     with open(cookie_path, mode='r', encoding='utf-8') as file_obj:
         cookie = file_obj.read()
@@ -270,13 +300,10 @@ def craw_post(rdm):
 
 
 if __name__ == '__main__':
-    idx = 0
-    while True:
-        rdm = idx % len(accounts)
-        rst = craw_post(rdm)
-        if rst:
-            break
-        idx += 1
-        time.sleep(10)
-    # ticket_step()
+
+    # file = get_json_file_name()
+    # print(file)
+    ticket_step()
     # os.system("pause")
+
+    pass

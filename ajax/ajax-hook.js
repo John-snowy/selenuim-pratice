@@ -4,6 +4,11 @@
 ah.proxy({
     //请求发起前进入
     onRequest: (config, handler) => {
+        let url = config.url;
+        if (url.indexOf('query.book.info.data') !== -1){
+            localStorage.setItem('book_stat', 0)
+
+        }
         handler.next(config);
     },
     //请求发生错误时进入，比如超时；注意，不包括http状态码错误，如404仍然会认为请求成功
@@ -14,10 +19,26 @@ ah.proxy({
     onResponse: (response, handler) => {
         //判断是否是json
         let url = response.config.url;
+        if (!response.response || response.response.indexOf('html') !== -1) {
+            delete response.config.xhr;
+            handler.next(response)
+        }
         let obj = JSON.parse(response.response);
         if (typeof obj == 'object' && obj) {
             if (url.indexOf('query.book.info.data') !== -1){
-                localStorage.setItem('book_data', JSON.stringify(obj.responseData))
+                localStorage.setItem('book_data', JSON.stringify(obj))
+                localStorage.setItem('book_stat', 1)
+
+                // let book_num = localStorage.getItem('book_num')
+                // if (!book_num) {
+                //     localStorage.setItem('book_stat', 1)
+                // }else {
+                //     localStorage.setItem('book_num', parseInt(book_num)+1)
+                // }
+
+            }
+            if (url.indexOf('query.line.ticket.price') !== -1){
+                localStorage.setItem('price_data', JSON.stringify(obj))
             }
         }
         delete response.config.xhr;
